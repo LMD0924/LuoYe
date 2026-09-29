@@ -1,0 +1,63 @@
+# 落叶（LuoYe）后端应用配置
+# 敏感信息一律通过环境变量注入，勿提交明文密钥。
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: luoye-api
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/luoye}
+    username: ${DB_USERNAME:luoye}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate      # 表结构由 Flyway 迁移管理，应用只做校验
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  servlet:
+    multipart:
+      max-file-size: ${UPLOAD_MAX_FILE_SIZE:10MB}   # 知识库单文件上限（§3.5 评审项）
+      max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:12MB}
+
+# 以下为项目自定义配置，模型 Bean/供应商工厂尚未接入，不会自动调用模型。
+# LangChain4j 模型供应商（§7 配置管理）
+# 支持多模型并行：对话 chat.model / 嵌入 embedding.model 可分别配置
+langchain4j:
+  chat:
+    provider: ${LLM_CHAT_PROVIDER:openai-compatible}   # openai-compatible | ollama
+    base-url: ${LLM_CHAT_BASE_URL:}
+    api-key: ${LLM_CHAT_API_KEY:}                      # 从环境变量注入
+    model: ${LLM_CHAT_MODEL:}
+    temperature: ${LLM_CHAT_TEMPERATURE:0.7}
+    timeout-seconds: ${LLM_CHAT_TIMEOUT:60}
+  embedding:
+    provider: ${LLM_EMBEDDING_PROVIDER:openai-compatible}
+    base-url: ${LLM_EMBEDDING_BASE_URL:}
+    api-key: ${LLM_EMBEDDING_API_KEY:}
+    model: ${LLM_EMBEDDING_MODEL:}
+    dimension: ${LLM_EMBEDDING_DIMENSION:1536}         # V1 固定 1536；变更必须新增迁移并重建嵌入，不能仅修改环境变量
+  ollama:
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434} # 本地降级路径（N17）
+
+# JWT（§9 单用户认证最小方案；密钥生成/持久化留待 M1 实现）
+luoye:
+  security:
+    jwt:
+      # HS256 密钥：支持通过环境变量显式指定；未指定时的生成与持久化尚未实现
+      secret: ${LUOYE_JWT_SECRET:}
+      exp-hours: ${LUOYE_JWT_EXP_HOURS:1}
+  auth:
+    username: ${LUOYE_AUTH_USERNAME:admin}            # 单用户登录名（首启初始化）
+    password: ${LUOYE_AUTH_PASSWORD:}                 # 首启初始化用，须在环境变量中提供

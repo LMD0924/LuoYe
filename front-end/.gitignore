@@ -1,0 +1,15 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+.env.local
+.env.*.local
+
+# 编辑器/系统
+.DS_Store
+Thumbs.db
+*.log
+
+# 本地构建产物
+*.tsbuildinfo
