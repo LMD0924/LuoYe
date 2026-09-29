@@ -5,7 +5,7 @@
 | 字段 | 内容 |
 | ---- | ---- |
 | 文档名称 | 落叶（LuoYe）个人 AI 智能体技术设计文档 |
-| 文档版本 | v1.0（初稿，待评审确认） |
+| 文档版本 | v1.1（含技术评审修订） |
 | 依据 | 需求文档 v0.2 |
 | 创建日期 | 2026-09-29 |
 | 技术栈 | Spring Boot + LangChain4j + Vue 3 + PostgreSQL + pgvector |
@@ -112,8 +112,10 @@ citations jsonb                     -- 引用来源（§3.8 格式）
 tokens_used int
 status varchar(16) default 'completed' -- completed | interrupped | generated
 run_id uuid                         -- 流式 run 标识（用于打断）
+retrieval_log jsonb                 -- 本轮 记忆/知识库 检索状态（§5.2 未命中区分）
 created_at
 -- 索引：session_id, seq; 唯一 (session_id, seq)
+-- 索引：run_id（打断时快速定位当前流式消息）
 ```
 
 > 短期记忆 = 会话内最近 `maxMessages` 条 `messages`。LangChain4j `MessageWindowChatMemory` 的读写经由自定义 `ChatMemoryStore` 落在本表。
@@ -126,7 +128,7 @@ user_id uuid not null references users(id)
 content text not null                -- 记忆事实文本
 memory_type varchar(32) default 'fact' -- fact | preference | event | profile
 source varchar(16) not null          -- explicit | inferred（F2.4）
-confidence varchar(8) not null       -- high | medium | low（inferred 必填）
+confidence varchar(8) null           -- high | medium | low（仅 inferred 必填，见 CHECK）
 status varchar(16) default 'active'  -- pending | active | stale | deleted
 embedding vector(1536)
 importance_weight float default 0.5  -- 衰减因子（§5.3）
@@ -138,6 +140,8 @@ origin_session_id uuid null          -- 来源会话
 origin_message_id uuid null          -- 来源消息
 next_review_at timestamptz null      -- 低频复审时间
 created_at / updated_at / deleted_at
+-- CHECK (source != 'inferred' OR confidence IS NOT NULL)   -- inferred 必填置信度
+-- CHECK (confidence IS NULL OR confidence IN ('high','medium','low'))
 -- 索引：user_id+status; embedding HNSW/ivfflat; status+last_access_at
 ```
 
@@ -165,10 +169,11 @@ document_id uuid not null references kb_documents(id)
 user_id uuid not null
 seq int not null                     -- 文档内分块序号
 content text not null
+source_hash char(64)                 -- 该 chunk 内容哈希（SHA-256，用于增量判变）
 embedding vector(1536)
 token_count int
 metadata jsonb                       -- {page, heading, paragraph_id, source_type}
-created_at
+created_at / updated_at
 -- 索引：document_id,seq; 向量索引；user_id（检索过滤）
 ```
 
@@ -179,12 +184,13 @@ id uuid pk
 user_id uuid not null
 title varchar(255) not null
 content text                         -- Markdown 原文
+content_hash char(64)                -- 整体内容哈希，保存时对比判变
 status varchar(16) default 'active'
 kb_document_id uuid null             -- 关联的 kb_documents（source_type='note'）
 created_at / updated_at / deleted_at
 ```
 
-> 方案 A 落地：笔记保存/更新 → 同步 upsert 一条 `kb_documents(source_type='note')` 及对应 `kb_chunks`（增量重分块+重嵌入）；检索时即与上传文档统一命中。
+> 方案 A 落地：笔记保存/更新时**先对比 `content_hash`**，未变化则跳过；变化才触发 upsert `kb_documents(source_type='note')` 与 `kb_chunks` 的**增量重分块+重嵌入**（对比 `source_hash` 只更新变化的 chunk）；检索时即与上传文档统一命中。
 
 ### 2.8 configs 配置
 
@@ -284,6 +290,8 @@ DELETE /api/v1/sessions/{id}                    → 软删
 GET    /api/v1/sessions?q=<关键词>               → FTS 搜索
 ```
 
+**会话标题生成（F1.4）**：新建会话默认 `title` 为空（界面显示"未命名会话"）；首轮对话 `done` 后，用轻量模型调用（低成本，可选开启）根据首条用户/助手消息自动生成一个 ≤20 字标题并回写；用户也可手动 `PATCH /sessions/{id}` 改名，手动命名优先于自动生成。标题生成失败则保留空标题，不阻塞对话。
+
 ### 3.4 记忆管理（F2.3/F2.4 透明可控）
 
 ```
@@ -305,6 +313,8 @@ DELETE /api/v1/kb/documents/{id}
 GET    /api/v1/kb/search?q=<词>                    → 文档/块检索
 笔记：GET/POST/PATCH/DELETE /api/v1/notes          保存即入库重索引
 ```
+
+**上传限制（§6 配套）**：单文件上限默认 **10MB**（超限返回 413）；解析/入库设置 **30s 超时**；解析失败时 `kb_documents.status='failed'` 并返回错误原因，前端可删除后重传；入库成功后转 `ready`。个人项目避免误传超大文件拖垮服务。
 
 ### 3.6 待办/日程、设置、认证
 
@@ -371,6 +381,15 @@ interface LuoyeAssistant {
 ```
 
 - `@SystemMessage` 模板注入：人格 prompt（清晰独立，便于版本化）、召回到的长期记忆摘要、知识库上下文引用、联网开关等用户首选项。
+- **占位符注入方式需区分**：
+
+  | 占位符 | 性质 | 注入方式 |
+  | ------ | ---- | -------- |
+  | `${persona}`（人格 prompt） | 相对稳定，来自 `configs` 表 | 会话/Agent 装配时以 `@V("persona")` 注入一次；Bean 启动时从 `configs` 读取并缓存，人格变动时由配置服务刷新 | 
+  | `${memoryContext}`（召回记忆） | 每轮动态变化 | 每轮生成前由 `MemoryRetriever` 检索后**动态拼接**，以 `@V("memoryContext")` 注入；不含在启动加载的静态模板里 |
+  | `${kbContext}`（知识库引用） | 每轮动态变化 | 同 memoryContext，按需检索注入，附 `kind=kb` 引用 |
+
+  即：`persona` 走"启动加载/低频刷新"；`memoryContext`/`kbContext` 走"每轮 @V 动态注入"，两者注入时机与来源不同，不做统一处理。
 - 绑定能力：`ChatMemory`（短期）、`@Tool` 集合、`ContentRetriever`（知识库/记忆，见 4.4）。
 - 多轮上下文由 `@MemoryId`（sessionId）路由到对应会话窗口。
 
@@ -385,7 +404,10 @@ interface LuoyeAssistant {
 - 基于 pgvector 实现 `EmbeddingStore<TextSegment>`（或封装现成 pgvector 集成库）。
 - 两个 store 实例：`memoryEmbeddingStore`（`long_term_memory`）、`kbEmbeddingStore`（`kb_chunks`）；业务上以 `user_id` 作为租户过滤，`EmbeddingSearchRequest` 附加过滤保证单用户数据隔离。
 - 向量索引建议 **HNSW**（检索快、适合单机个人库），满足 N3 检索 ≤1s。
-- 嵌入维度以所选供应商为准，切换供应商时需重建索引/提供向量重算工具。
+- **两个 store 的维度与嵌入模型一致性**：允许 `memoryEmbeddingStore` 与 `kbEmbeddingStore` 使用**不同维度 / 不同嵌入模型**（如记忆用轻量便宜的、知识库用更强的），两种都支持。约定：
+  - 每张表 `embedding vector(N)` 的 N 与**所属 store 的嵌入模型**维度一致；两表可不同（如记忆 512、知识库 1536）。
+  - 切换某个 store 的嵌入模型时，**只重建该 store 所属表**（`long_term_memory` 或 `kb_chunks`）的向量与索引，另一 store 不受影响；提供向量重算/重建工具。
+  - 配置中需记录每个 store 的 `provider/model` 与维度，便于迁移时校验。
 
 ### 4.4 ContentRetriever（知识库 RAG + 记忆召回）
 
@@ -425,7 +447,14 @@ String webSearch(@P("query") String query);
 
 - **按需主检**：每轮生成前，用"当前用户消息 + 最近上下文摘要"作 query，`MemoryRetriever` 对 `status=active` 记忆向量检索 topK（如 5），注入 `@SystemMessage` 的记忆区。
 - **高频常驻**（冷热分级）：`importance_weight` 与 `access_count` 高的少量记忆放入**热区缓存**常驻 prompt，避免每轮全量检索、也控制成本；其余为冷区按需检索。
-- **未命中区分**：记录"已检索未命中"与"未检索"两类状态，避免模型误以为"没查到=不存在"，并配合 N18 做检索频率上限（同一会话窗口内固定次数）。
+- **未命中区分**：记录"已检索未命中"与"未检索"两类状态，避免模型误以为"没查到=不存在"。个人项目采用**简单做法**：在本轮 `messages.retrieval_log`（jsonb）中记录检索摘要即可，不单建检索事件表。`retrieval_log` 结构示意：
+
+  ```json
+  { "memory": { "retrieved": true, "hits": 2, "reason": "topk_rank" },
+    "kb":     { "retrieved": false, "hits": 0, "reason": "skipped(retrieval_rate_limit)" } }
+  ```
+
+  其中 `retrieved=true, hits=0` 表示"已检索未命中"，`retrieved=false` 表示"本轮未检索（受 N18 频率限制）"，均写入 `run` 对应消息。系统据此做 N18 检索频率上限（同一会话窗口内固定次数）。
 - **引用可溯**：命中记忆以 `kind=memory` 进 citations，前端可回跳查看（F2.3 透明度）。
 
 ### 5.3 衰减算法（F2.5）
@@ -468,7 +497,7 @@ frequency = ln(1 + access_count) / ln(1 + W)         // W: 频率归一化窗口
         → 状态 indexing → ready；解析失败 → failed（前端可重传）
 ```
 
-- **笔记同步（F3.4）**：保存笔记 → upsert `kb_documents(note)` → 增量重分块+重嵌入新增/变更块 → 更新 `chunk_count`。缺失块删除、当前块更新，避免全量重建（N18 增量嵌入）。
+- **笔记同步（F3.4，带版本控制）**：保存时对比 `notes.content_hash`，未变则跳过；变化才触发 upsert `kb_documents(note)` → 重分块 → 用 `kb_chunks.source_hash` **仅重嵌入内容变化的 chunk**、删除缺失 chunk → 更新 `chunk_count`。频繁编辑也不会全量重嵌入（N18 增量 + 控成本）。
 - **统一检索**：`KnowledgeRetriever` 查 `kb_chunks`（可按 `source_type` 过滤"仅笔记/仅文档"）；命中即生成 `kind=kb` 引用。
 - **检索双通道**：
   - 向量检索：语义相关（RAG 主路径，F3.2）。
@@ -489,7 +518,12 @@ frequency = ln(1 + access_count) / ln(1 + W)         // W: 频率归一化窗口
 - 以 Spring Bean 暴露 `ChatLanguageModel` 与 `EmbeddingModel`；供应商/模型信息来自 `configs`。
 - **供应商注册表 + 工厂**：`ModelProvider` 枚举（`openai-compatible`、`ollama` 等），统一工厂按配置构建对应 LangChain4j 模型。
 - **对话与嵌入可并行**：对话用模型 A、嵌入/检索用模型 B 分别配置，互不耦合（`ChatLanguageModel` 与 `EmbeddingModel` 各自独立 Bean）。
-- **切换动作**：`POST /api/v1/configs/model` → 校验连通性 → 重建所需 Bean（或热替换）→ 返回新配置状态。
+- **切换动作**：`POST /api/v1/configs/model` → 校验连通性 → 更新配置 → 返回新配置状态。
+- **切换时机与副作用（规避热替换风险）**：不在运行中直接重建/替换正在被流式使用的 `ChatLanguageModel` Bean，避免中断进行中的流式请求。采用**双实例/版本化**策略：
+  - 新配置落库并"生效标记"；**新会话**使用新模型装配。
+  - **进行中的会话**继续持有旧模型实例直到该次流式结束（或用完当前会话），不被中途替换。
+  - 仅当没有活跃流式请求时才回收旧模型实例（或保留至自然空闲，单机成本可接受）。
+  - 这是"切换只影响新会话/新请求"的约定，避免并发 Bean 热替换。
 - **一致性**：人格 prompt 与长期记忆独立于具体模型持久化，切换模型时原样沿用，避免人格与记忆漂移（需求 7.4）。
 - **降级路径**：云端模型不可用时切到本地（Ollama）降级，满足 N17。
 
@@ -512,6 +546,8 @@ frequency = ln(1 + access_count) / ln(1 + W)         // W: 频率归一化窗口
 - **账户**：`users` 表仅存单用户，密码用 bcrypt 哈希（不落明文）。
 - **登录**：`POST /api/v1/auth/login` 校验后签发 **JWT**（HS256，对称密钥走环境变量）。
 - **鉴权**：Spring 拦截器/Filter 校验 `Authorization: Bearer <token>`；除 `/auth/login`、健康检查、静态资源外均需认证。
+- **JWT 密钥管理**：HS256 对称密钥默认不在代码/配置中硬编码。**首次启动自动生成**随机 256-bit 密钥并持久化到受控位置（如 `secrets` 加密列或权限受限的密钥文件，配合环境变量覆盖）；后续启动复用已持久化密钥（保证既有 token 不失效）。提供工具重建密钥（会令已发 token 全部失效，属管理操作）。
+- **忘记密码**：个人项目采用**简单方案**——提供本地重置入口（如 CLI 或管理员侧接口）直接更新 `users.password_hash`（重设新密码的 bcrypt），不搭邮件/短信找回流程。
 - **生命周期**：`exp`（可配置，默认 1h）；前端持有 token；可选 `logout` 后置失效/黑名单（单机场景可仅前端清除）。
 - **安全**：TLS（N8）、密钥隔离（N6）、失败次数限制/简单限流。
 - **扩展性**：字段已带 `user_id`，后续多用户只需加注册/角色，业务表无需改结构（为多用户预留，本期不开通）。
