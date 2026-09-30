@@ -41,4 +41,7 @@ public interface SessionService {
 
     /** 补记 token 用量；tokens 为 null 表示供应商未报告，不修改。 */
     void updateTokens(UUID messageId, Integer tokens);
+
+    /** 写入本轮检索日志与引用。 */
+    void updateRetrieval(UUID messageId, String retrievalLog, String citations);
 }

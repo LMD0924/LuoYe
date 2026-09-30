@@ -27,7 +27,7 @@ public interface LuoyeAssistant {
      * @return LangChain4j 流式令牌管道
      */
     // {{变量名}} 由同名 @V 参数替换；@MemoryId 标识会话，@UserMessage 指定本轮输入。
-    @SystemMessage("{{persona}}\n当前仅使用本会话短期记忆。不要声称拥有长期记忆、联网或工具能力。\n记忆摘要：{{memoryContext}}\n知识库上下文：{{kbContext}}")
+    @SystemMessage("{{persona}}\n记忆摘要：{{memoryContext}}\n知识库上下文：{{kbContext}}\n没有出现在记忆摘要或知识库中的事实，不要假装记得。引用知识库用 [n]。")
     TokenStream stream(
             @MemoryId UUID sessionId,
             @UserMessage String userMessage,

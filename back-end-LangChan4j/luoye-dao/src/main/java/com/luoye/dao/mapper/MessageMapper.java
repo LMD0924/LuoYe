@@ -47,4 +47,10 @@ public interface MessageMapper extends BaseMapper<Message> {
             + "AND seq>coalesce((SELECT last_seq FROM memory_extraction_cursor "
             + "WHERE session_id=#{sessionId}),0) ORDER BY seq LIMIT 30")
     List<Message> selectUnprocessedUserMessages(@Param("sessionId") UUID sessionId);
+
+    @org.apache.ibatis.annotations.Update("UPDATE messages SET retrieval_log=CAST(#{log} AS jsonb),"
+            + "citations=CAST(#{citations} AS jsonb) WHERE id=#{id}")
+    int updateRetrieval(@Param("id") UUID id,
+                        @Param("log") String log,
+                        @Param("citations") String citations);
 }

@@ -110,4 +110,9 @@ public class SessionServiceImpl implements SessionService {
         update.setTokensUsed(tokens);
         messageMapper.updateById(update);
     }
+
+    @Override
+    public void updateRetrieval(UUID messageId, String retrievalLog, String citations) {
+        messageMapper.updateRetrieval(messageId, retrievalLog, citations);
+    }
 }

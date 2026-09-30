@@ -40,5 +40,11 @@ public class Message {
     /** token 用量，供应商未报告时为空。 */
     private Integer tokensUsed;
 
+    /** 本轮记忆/知识库检索摘要 JSON。 */
+    private String retrievalLog;
+
+    /** 引用来源 JSON。 */
+    private String citations;
+
     private Instant createdAt;
 }
