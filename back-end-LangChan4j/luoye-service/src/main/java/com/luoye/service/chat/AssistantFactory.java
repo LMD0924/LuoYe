@@ -1,0 +1,48 @@
+package com.luoye.service.chat;
+
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.model.chat.StreamingChatLanguageModel;
+import dev.langchain4j.service.AiServices;
+import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+
+/**
+ * 创建绑定会话短期记忆的 LangChain4j Assistant。
+ *
+ * @author Codex（代码生成及注释）
+ * @since 2026-09-30
+ */
+@Component
+public class AssistantFactory {
+
+    private final StreamingChatLanguageModel model;
+
+    /**
+     * 构造器注入流式模型。
+     *
+     * @param model 已由 API 模块按供应商配置创建的模型
+     */
+    public AssistantFactory(StreamingChatLanguageModel model) {
+        this.model = model;
+    }
+
+    /**
+     * 为一轮生成创建隔离的 ChatMemory 和 Assistant。
+     *
+     * @param id 会话 memory ID
+     * @param store 持久化窗口存储
+     * @param max 窗口大小
+     * @return 已绑定记忆的对话接口
+     */
+    public LuoyeAssistant create(UUID id, PersistentChatMemoryStore store, int max) {
+        return AiServices.builder(LuoyeAssistant.class)
+                .streamingChatLanguageModel(model)
+                .chatMemory(MessageWindowChatMemory.builder()
+                        .id(id)
+                        .maxMessages(max)
+                        .chatMemoryStore(store)
+                        .build())
+                .build();
+    }
+}

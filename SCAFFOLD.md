@@ -125,3 +125,10 @@ kb_documents、kb_chunks、notes、configs、todos、tool_calls、memory_correct
 - Maven 多模块 package 成功，使用 Java 17；未添加或运行业务测试。
 - 前端使用 JavaScript，构建命令为 vite build；不再运行 TypeScript 类型检查。
 - SQL 已静态核对 11 张表、12 个 CHECK、两处 vector(1536)；未在 PostgreSQL 实例执行迁移。
+## M1 MVP 已实现
+
+- `LuoyeAssistant` 使用 LangChain4j `TokenStream`，由 `@MemoryId` 绑定 UUID 会话。
+- `PersistentChatMemoryStore` 从 `messages` 恢复最近窗口；窗口裁剪不删除持久化历史。
+- `SessionController` 提供登录、会话列表、新建会话、历史消息、SSE 对话和停止生成接口。
+- 前端 ChatView 使用 fetch 流式读取 `text/event-stream`，按 `delta` 事件增量追加助手内容。
+- 单会话并发生成被拒绝；超时、模型错误、客户端断开不会写入残缺助手消息。

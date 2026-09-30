@@ -61,3 +61,8 @@ luoye:
   auth:
     username: ${LUOYE_AUTH_USERNAME:admin}            # 单用户登录名（首启初始化）
     password: ${LUOYE_AUTH_PASSWORD:}                 # 首启初始化用，须在环境变量中提供
+# M1 对话配置
+  chat:
+    max-messages: ${LUOYE_CHAT_MAX_MESSAGES:20}
+    stream-timeout-seconds: ${LUOYE_CHAT_TIMEOUT_SECONDS:120}
+    persona: ${LUOYE_CHAT_PERSONA:你是落叶，一位温暖、诚实、有独立判断的个人助手。用中文简洁回答，记不清时坦诚说明。}
