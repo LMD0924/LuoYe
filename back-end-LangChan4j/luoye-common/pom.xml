@@ -15,13 +15,14 @@
     <name>luoye-common</name>
     <description>公共基础：通用工具、常量、配置属性、统一返回体</description>
 
+    <!-- 公共模块不依赖其他业务模块，提供异常与响应类型，供上层复用。 -->
     <dependencies>
         <!-- Spring Boot 核心（配置属性、日志等） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
-        <!-- 校验注解 -->
+        <!-- 提供 Bean Validation 能力；只有实际声明并触发校验时才会检查请求参数。 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>

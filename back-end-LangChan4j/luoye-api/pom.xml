@@ -15,6 +15,7 @@
     <name>luoye-api</name>
     <description>应用入口层：REST/SSE Controller、安全配置、启动类</description>
 
+    <!-- API 依赖 service，并通过它间接获得 dao/common；控制器不放在独立启动进程中。 -->
     <dependencies>
         <dependency>
             <groupId>com.luoye</groupId>
@@ -31,7 +32,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
-        <!-- JWT -->
+        <!-- JWT API 用于编译，具体实现与 Jackson 序列化依赖的 runtime 范围由父工程继承。 -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -62,6 +63,7 @@
         </dependency>
     </dependencies>
 
+    <!-- 指定唯一启动类；打包时由 Spring Boot 插件生成可执行 JAR。 -->
     <build>
         <plugins>
             <plugin>

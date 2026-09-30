@@ -13,14 +13,7 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
-  jpa:
-    hibernate:
-      ddl-auto: validate      # 表结构由 Flyway 迁移管理，应用只做校验
-    open-in-view: false
-    properties:
-      hibernate:
-        format_sql: true
-
+  # 表结构由 Flyway 迁移管理；数据访问使用 MyBatis-Plus。
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -31,7 +24,17 @@ spring:
       max-file-size: ${UPLOAD_MAX_FILE_SIZE:10MB}   # 知识库单文件上限（§3.5 评审项）
       max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:12MB}
 
-# 以下为项目自定义配置，模型 Bean/供应商工厂尚未接入，不会自动调用模型。
+# MyBatis-Plus 配置
+mybatis-plus:
+  type-aliases-package: com.luoye.dao.entity
+  mapper-locations: classpath*:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true     # 下划线列名自动映射驼峰字段
+  global-config:
+    banner: false
+    db-config:
+      id-type: assign_uuid                # UUID 主键由 MP 分配；不启用自动逻辑删除
+
 # LangChain4j 模型供应商（§7 配置管理）
 # 支持多模型并行：对话 chat.model / 嵌入 embedding.model 可分别配置
 langchain4j:
@@ -47,21 +50,20 @@ langchain4j:
     base-url: ${LLM_EMBEDDING_BASE_URL:}
     api-key: ${LLM_EMBEDDING_API_KEY:}
     model: ${LLM_EMBEDDING_MODEL:}
-    dimension: ${LLM_EMBEDDING_DIMENSION:1536}         # V1 固定 1536；变更必须新增迁移并重建嵌入，不能仅修改环境变量
+    dimension: ${LLM_EMBEDDING_DIMENSION:1536}         # V1 固定 1536；变更必须新增迁移并重建嵌入
   ollama:
     base-url: ${OLLAMA_BASE_URL:http://localhost:11434} # 本地降级路径（N17）
 
-# JWT（§9 单用户认证最小方案；密钥生成/持久化留待 M1 实现）
+# JWT（§9 单用户认证最小方案）
 luoye:
   security:
     jwt:
-      # HS256 密钥：支持通过环境变量显式指定；未指定时的生成与持久化尚未实现
-      secret: ${LUOYE_JWT_SECRET:}
+      secret: ${LUOYE_JWT_SECRET:}                     # HS256 密钥，至少 32 字符
       exp-hours: ${LUOYE_JWT_EXP_HOURS:1}
   auth:
     username: ${LUOYE_AUTH_USERNAME:admin}            # 单用户登录名（首启初始化）
     password: ${LUOYE_AUTH_PASSWORD:}                 # 首启初始化用，须在环境变量中提供
-# M1 对话配置
+  # M1 对话配置
   chat:
     max-messages: ${LUOYE_CHAT_MAX_MESSAGES:20}
     stream-timeout-seconds: ${LUOYE_CHAT_TIMEOUT_SECONDS:120}

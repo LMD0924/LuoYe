@@ -9,9 +9,6 @@ import java.util.UUID;
 
 /**
  * 创建绑定会话短期记忆的 LangChain4j Assistant。
- *
- * @author Codex（代码生成及注释）
- * @since 2026-09-30
  */
 @Component
 public class AssistantFactory {
@@ -36,8 +33,10 @@ public class AssistantFactory {
      * @return 已绑定记忆的对话接口
      */
     public LuoyeAssistant create(UUID id, PersistentChatMemoryStore store, int max) {
+        // 为接口生成运行时代理；方法注解负责把用户文本和模板变量转换为模型请求。
         return AiServices.builder(LuoyeAssistant.class)
                 .streamingChatLanguageModel(model)
+                // max 限制消息条数而非轮数，系统消息也占窗口；store 承接窗口读取与更新。
                 .chatMemory(MessageWindowChatMemory.builder()
                         .id(id)
                         .maxMessages(max)

@@ -13,12 +13,18 @@
     <artifactId>luoye-service</artifactId>
     <packaging>jar</packaging>
     <name>luoye-service</name>
-    <description>业务服务层：对话/记忆/知识库/工具 编排（占位）</description>
+    <description>业务服务层：认证/会话/对话编排（接口 + impl）、模型调用</description>
 
     <dependencies>
         <dependency>
             <groupId>com.luoye</groupId>
             <artifactId>luoye-dao</artifactId>
+        </dependency>
+
+        <!-- 密码加密（BCrypt），供认证与首启建号使用 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
         <dependency>

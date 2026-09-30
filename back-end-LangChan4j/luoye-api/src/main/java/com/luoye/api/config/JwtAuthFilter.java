@@ -38,18 +38,23 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+        // 只读取 Authorization 请求头；这里不从 Cookie 或 URL 参数接收令牌。
         String value = request.getHeader("Authorization");
         if (value != null && value.startsWith("Bearer ")) {
             try {
+                // 去掉固定的七字符 Bearer 前缀，再验证签名、过期时间及 subject 格式。
                 var id = jwt.subject(value.substring(7));
+                // 三参数构造器生成已认证身份；principal 是用户 UUID 字符串，不附加角色权限。
                 var auth = new UsernamePasswordAuthenticationToken(
                         id.toString(), null, AuthorityUtils.NO_AUTHORITIES);
+                // 写入当前请求的安全上下文，控制器的 Authentication 参数由此获得身份。
                 org.springframework.security.core.context.SecurityContextHolder.getContext()
                         .setAuthentication(auth);
             } catch (RuntimeException ignored) {
                 // 验证失败不写入身份，继续由安全过滤链执行访问控制。
             }
         }
+        // 有无合法令牌都会进入后续过滤器；受保护路径由 SecurityConfig 决定是否放行。
         chain.doFilter(request, response);
     }
 }

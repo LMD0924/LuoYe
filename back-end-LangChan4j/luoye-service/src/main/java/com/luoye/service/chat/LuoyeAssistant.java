@@ -13,9 +13,6 @@ import java.util.UUID;
  *
  * <p>由 LangChain4j 在运行时生成实现。{@code sessionId} 绑定短期记忆窗口，
  * {@code TokenStream} 将模型输出逐段交给 SSE 层。
- *
- * @author Codex（代码生成及注释）
- * @since 2026-09-30
  */
 public interface LuoyeAssistant {
 
@@ -29,6 +26,7 @@ public interface LuoyeAssistant {
      * @param kbContext 知识库上下文占位；M1 暂未启用
      * @return LangChain4j 流式令牌管道
      */
+    // {{变量名}} 由同名 @V 参数替换；@MemoryId 标识会话，@UserMessage 指定本轮输入。
     @SystemMessage("{{persona}}\n当前仅使用本会话短期记忆。不要声称拥有长期记忆、联网或工具能力。\n记忆摘要：{{memoryContext}}\n知识库上下文：{{kbContext}}")
     TokenStream stream(
             @MemoryId UUID sessionId,

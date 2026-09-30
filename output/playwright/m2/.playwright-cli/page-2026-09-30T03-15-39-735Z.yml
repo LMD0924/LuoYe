@@ -1,0 +1,72 @@
+- generic [ref=f1e3]:
+  - complementary [ref=f1e4]:
+    - heading "落叶" [level=1] [ref=f1e5]
+    - navigation "主导航" [ref=f1e6]:
+      - link "对话" [ref=f1e7] [cursor=pointer]:
+        - /url: /chat
+      - link "记忆" [ref=f1e8] [cursor=pointer]:
+        - /url: /memory
+      - link "知识库" [ref=f1e9] [cursor=pointer]:
+        - /url: /knowledge
+      - link "笔记" [ref=f1e10] [cursor=pointer]:
+        - /url: /notes
+      - link "设置" [ref=f1e11] [cursor=pointer]:
+        - /url: /settings
+  - main [ref=f1e12]:
+    - generic [ref=f1e13]:
+      - generic [ref=f1e14]:
+        - generic [ref=f1e15]:
+          - heading "长期记忆" [level=2] [ref=f1e16]
+          - paragraph [ref=f1e17]: 查看落叶记住的事实，纠正不准确的信息。待确认项不会用于回答。
+        - button "清空全部" [ref=f1e18]
+      - generic [ref=f1e19]:
+        - generic [ref=f1e20]:
+          - text: 类型
+          - combobox "类型" [ref=f1e21]:
+            - option "全部" [selected]
+            - option "事实"
+            - option "偏好"
+            - option "事件"
+            - option "个人资料"
+        - generic [ref=f1e22]:
+          - text: 状态
+          - combobox "状态" [ref=f1e23]:
+            - option "全部" [selected]
+            - option "生效中"
+            - option "待确认"
+            - option "已过期"
+        - textbox "搜索记忆" [ref=f1e24]:
+          - /placeholder: 搜索关键词，如生日
+        - button "筛选" [ref=f1e25]
+      - status [ref=f1e70]: 已确认，可用于后续召回。
+      - generic [ref=f1e26]:
+        - generic [ref=f1e27]: 共 2 条
+        - button "确认已选（0）" [disabled] [ref=f1e28]
+      - generic [ref=f1e99]:
+        - article [ref=f1e100]:
+          - generic [ref=f1e102]:
+            - generic [ref=f1e103]:
+              - generic [ref=f1e104]: 事实
+              - generic [ref=f1e105]: 生效中
+              - generic [ref=f1e106]: 用户明确提供/确认 · 置信度高
+              - generic [ref=f1e107]: 永不衰减
+            - paragraph [ref=f1e108]: 生日是4月20日
+            - paragraph [ref=f1e109]: 被纠正 1 次 · 当前使用文本检索
+          - generic [ref=f1e110]:
+            - button "编辑" [ref=f1e111]
+            - button "删除" [ref=f1e112]
+        - article [ref=f1e113]:
+          - generic [ref=f1e115]:
+            - generic [ref=f1e116]:
+              - generic [ref=f1e117]: 偏好
+              - generic [ref=f1e118]: 生效中
+              - generic [ref=f1e119]: 用户明确提供/确认 · 置信度高
+            - paragraph [ref=f1e120]: 可能偏好绿茶
+            - paragraph [ref=f1e121]: 被纠正 0 次 · 当前使用文本检索
+          - generic [ref=f1e122]:
+            - button "编辑" [ref=f1e123]
+            - button "删除" [ref=f1e124]
+      - navigation "记忆分页" [ref=f1e56]:
+        - button "上一页" [disabled] [ref=f1e57]
+        - generic [ref=f1e58]: 1 / 1
+        - button "下一页" [disabled] [ref=f1e59]

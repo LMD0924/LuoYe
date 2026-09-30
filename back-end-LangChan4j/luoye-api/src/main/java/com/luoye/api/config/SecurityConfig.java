@@ -36,11 +36,14 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtFilter)
             throws Exception {
+        // 使用请求头 Bearer 令牌认证，关闭 CSRF 校验；STATELESS 表示不在 HTTP Session 保存身份。
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // 仅这些路径允许匿名请求；其他请求必须先被 JWT 过滤器设置为已认证。
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/login", "/actuator/health", "/error")
                         .permitAll().anyRequest().authenticated())
+                // 先解析 JWT，再进入默认用户名/密码过滤器所在的位置及后续访问控制。
                 .addFilterBefore(jwtFilter,
                         org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         return http.build();

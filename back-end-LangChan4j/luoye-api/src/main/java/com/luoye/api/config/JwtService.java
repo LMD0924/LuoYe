@@ -37,6 +37,7 @@ public class JwtService {
         if (secret == null || secret.length() < 32) {
             throw new IllegalStateException("LUOYE_JWT_SECRET must be at least 32 characters");
         }
+        // 将原始密钥按 UTF-8 编码为 HMAC 密钥；不是对配置值做 Base64 解码。
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationHours = expirationHours;
     }
@@ -49,7 +50,9 @@ public class JwtService {
      * @return 带签名和有效期的 JWT
      */
     public String issue(UUID userId, String username) {
+        // 同一时间点用于签发时间和到期时间，配置中的小时数转换成秒。
         Instant now = Instant.now();
+        // subject 是后续权限校验使用的用户 ID；username 只是附加信息，JWT 签名不等于加密。
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("username", username)
@@ -68,6 +71,7 @@ public class JwtService {
      * @throws IllegalArgumentException subject 不是 UUID 或输入非法
      */
     public UUID subject(String token) {
+        // 先校验整个已签名令牌再读取 subject，不能直接信任客户端提供的载荷。
         return UUID.fromString(Jwts.parser().verifyWith(key).build()
                 .parseSignedClaims(token).getPayload().getSubject());
     }
